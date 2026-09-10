@@ -22,6 +22,7 @@ import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { SettingsView } from './components/settings/SettingsView';
 import { ProfileView } from './components/profile/ProfileView';
 import { TimetableScheduleView } from './components/timetable/TimetableScheduleView';
+import { AuthGateway } from './components/auth/AuthGateway';
 import { AuthModal } from './components/auth/AuthModal';
 import { OnboardingModal } from './components/auth/OnboardingModal';
 import { ToastProvider, useToast } from './components/common/Toast';
@@ -32,6 +33,7 @@ import { Task, NotificationItem, Subject, UserProfile } from './types';
 
 export function AppContent() {
   const [currentRoute, setCurrentRoute] = useState<NavRoute>('dashboard');
+  const [currentUser, setCurrentUser] = useState<any>(() => db.getCurrentUser());
 
   // Persistent User Profile State
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
@@ -46,11 +48,19 @@ export function AppContent() {
       university: activeDbUser?.university || 'School of Engineering and Technology',
       course: activeDbUser?.course || 'B.Tech AI & Data Science',
       semester: activeDbUser?.semester || 'III Sem',
-      criterion: 75,
-      dailyGoal: 2.0,
+      criterion: activeDbUser?.criterion || 75,
+      dailyGoal: activeDbUser?.dailyGoal || 2.0,
       studentId: activeDbUser?.studentId || 'AI26-BTECH-303',
       registrationBatch: 'Batch of 2027',
       batch: activeDbUser?.batch || 'B1',
+      avatarUrl: activeDbUser?.avatarUrl || '',
+      dob: activeDbUser?.dob || '2005-04-16',
+      department: activeDbUser?.department || 'Department of AI and Data Science Engineering',
+      campus: activeDbUser?.campus || 'Central Campus / Arch Block',
+      roomNo: activeDbUser?.roomNo || 'Room No: 303, 3F- Arch Block',
+      classTeacher: activeDbUser?.classTeacher || 'Prof. Swati Raj',
+      onboardingCompleted: activeDbUser?.onboardingCompleted ?? true,
+      hasTimetableConfigured: activeDbUser?.hasTimetableConfigured ?? true,
     };
   });
 
@@ -241,6 +251,62 @@ export function AppContent() {
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
   const tasksCompletedCount = tasks.filter((t) => t.completed).length;
 
+  const handleAuthSuccess = (user: any) => {
+    setCurrentUser(user);
+    setUserProfile((prev) => ({
+      ...prev,
+      name: user.fullName || prev.name,
+      email: user.email || prev.email,
+      university: user.university || prev.university,
+      course: user.course || prev.course,
+      semester: user.semester || prev.semester,
+      batch: user.batch || prev.batch,
+      studentId: user.studentId || prev.studentId,
+      avatarUrl: user.avatarUrl || prev.avatarUrl,
+      dob: user.dob || prev.dob,
+      department: user.department || prev.department,
+      roomNo: user.roomNo || prev.roomNo,
+      campus: user.campus || prev.campus,
+      classTeacher: user.classTeacher || prev.classTeacher,
+      onboardingCompleted: user.onboardingCompleted,
+      hasTimetableConfigured: user.hasTimetableConfigured,
+    }));
+    if (!user.onboardingCompleted) {
+      setIsOnboardingOpen(true);
+    }
+  };
+
+  const handleOnboardingComplete = (data: Partial<UserProfile>) => {
+    handleUpdateProfile(data);
+    if (currentUser) {
+      db.updateUser(currentUser.id, {
+        fullName: data.name,
+        dob: data.dob,
+        studentId: data.studentId,
+        avatarUrl: data.avatarUrl,
+        university: data.university,
+        campus: data.campus,
+        department: data.department,
+        course: data.course,
+        semester: data.semester,
+        roomNo: data.roomNo,
+        batch: data.batch,
+        classTeacher: data.classTeacher,
+        criterion: data.criterion,
+        dailyGoal: data.dailyGoal,
+        onboardingCompleted: true,
+        hasTimetableConfigured: data.hasTimetableConfigured,
+      });
+      setCurrentUser(db.getCurrentUser());
+    }
+    setIsOnboardingOpen(false);
+  };
+
+  // MANDATORY LOGIN GATE: Only authenticated users can access the website
+  if (!currentUser) {
+    return <AuthGateway onAuthSuccess={handleAuthSuccess} />;
+  }
+
   return (
     <div className="app-container">
       {/* Fixed Left Sidebar */}
@@ -254,7 +320,8 @@ export function AppContent() {
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenOnboarding={() => setIsOnboardingOpen(true)}
         userName={userProfile.name}
-        userCourse="CS"
+        userAvatar={userProfile.avatarUrl}
+        userCourse={userProfile.course || "B.Tech AI"}
         userSemester={userProfile.semester}
       />
 
@@ -270,6 +337,7 @@ export function AppContent() {
           onOpenNotifications={() => setCurrentRoute('notifications')}
           unreadCount={unreadNotificationsCount}
           userName={userProfile.name}
+          userAvatar={userProfile.avatarUrl}
           onNavigateProfile={() => setCurrentRoute('profile')}
         />
 
@@ -291,6 +359,7 @@ export function AppContent() {
 
           {currentRoute === 'timetable' && (
             <TimetableScheduleView
+              hasTimetableConfigured={userProfile.hasTimetableConfigured}
               onMarkAttendance={(code, status) => {
                 const sub = subjects.find(
                   (s) => s.code.toLowerCase().includes(code.toLowerCase()) || code.toLowerCase().includes(s.code.toLowerCase())
@@ -429,6 +498,11 @@ export function AppContent() {
             ...(email ? { email } : {}),
             ...(batch ? { batch } : {}),
           });
+          const updatedUser = db.getCurrentUser();
+          setCurrentUser(updatedUser);
+          if (updatedUser && !updatedUser.onboardingCompleted) {
+            setIsOnboardingOpen(true);
+          }
         }}
       />
 
@@ -436,10 +510,9 @@ export function AppContent() {
       <OnboardingModal
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
-        onComplete={(data) => {
-          handleUpdateProfile(data);
-          setCurrentRoute('dashboard');
-        }}
+        onComplete={handleOnboardingComplete}
+        initialName={userProfile.name}
+        initialEmail={userProfile.email}
       />
     </div>
   );

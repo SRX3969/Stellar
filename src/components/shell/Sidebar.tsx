@@ -49,6 +49,7 @@ interface SidebarProps {
   onOpenAuth?: () => void;
   onOpenOnboarding?: () => void;
   userName?: string;
+  userAvatar?: string;
   userCourse?: string;
   userSemester?: string;
 }
@@ -63,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAuth,
   onOpenOnboarding,
   userName = 'Abhiram',
+  userAvatar,
   userCourse = 'Computer Science',
   userSemester = 'Semester 5',
 }) => {
@@ -339,8 +341,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div
               style={{
-                width: '28px',
-                height: '28px',
+                width: '32px',
+                height: '32px',
                 borderRadius: '50%',
                 backgroundColor: 'var(--accent-subtle)',
                 border: '1px solid var(--accent-border)',
@@ -348,12 +350,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '12px',
+                fontSize: userAvatar && userAvatar.length <= 4 ? '15px' : '12px',
                 fontWeight: 600,
                 textTransform: 'uppercase',
+                overflow: 'hidden',
+                flexShrink: 0,
               }}
             >
-              {userName.charAt(0) || 'A'}
+              {userAvatar && userAvatar.startsWith('data:') ? (
+                <img src={userAvatar} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : userAvatar ? (
+                <span>{userAvatar}</span>
+              ) : (
+                userName.charAt(0) || 'A'
+              )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div

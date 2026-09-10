@@ -132,6 +132,14 @@ export interface UserProfile {
   studentId?: string;
   registrationBatch?: string;
   batch?: 'B1' | 'B2';
+  avatarUrl?: string;
+  dob?: string;
+  department?: string;
+  campus?: string;
+  roomNo?: string;
+  classTeacher?: string;
+  onboardingCompleted?: boolean;
+  hasTimetableConfigured?: boolean;
 }
 
 export type ClassReminderType =

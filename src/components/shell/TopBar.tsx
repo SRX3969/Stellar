@@ -11,6 +11,7 @@ interface TopBarProps {
   onOpenNotifications: () => void;
   unreadCount?: number;
   userName?: string;
+  userAvatar?: string;
   onNavigateProfile?: () => void;
 }
 
@@ -23,12 +24,15 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenNotifications,
   unreadCount = 2,
   userName = 'Abhiram',
+  userAvatar,
   onNavigateProfile,
 }) => {
   const getPageTitle = (route: NavRoute) => {
     switch (route) {
       case 'dashboard':
         return 'Dashboard';
+      case 'timetable':
+        return 'Class Timetable';
       case 'ai':
         return 'AI Tutor';
       case 'calendar':
@@ -284,7 +288,13 @@ export const TopBar: React.FC<TopBarProps> = ({
               e.currentTarget.style.borderColor = 'var(--accent-border)';
             }}
           >
-            {userName.charAt(0) || 'A'}
+            {userAvatar && userAvatar.startsWith('data:') ? (
+              <img src={userAvatar} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : userAvatar ? (
+              <span style={{ fontSize: '16px' }}>{userAvatar}</span>
+            ) : (
+              userName.charAt(0) || 'A'
+            )}
           </button>
         )}
       </div>

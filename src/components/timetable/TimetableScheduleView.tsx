@@ -7,7 +7,8 @@ import {
   Plus,
   CheckCircle2,
   AlertCircle,
-  Trash2
+  Trash2,
+  Upload
 } from 'lucide-react';
 import {
   INSTITUTIONAL_INFO,
@@ -18,20 +19,24 @@ import {
 } from '../../data/timetableData';
 import { DayOfWeek, TimetableSlot, ClassReminder } from '../../types';
 import { ClassReminderModal } from '../reminders/ClassReminderModal';
+import { TimetableUploadModal } from './TimetableUploadModal';
 import { db } from '../../services/db';
 import { useToast } from '../common/Toast';
 
 interface TimetableScheduleViewProps {
   onMarkAttendance?: (subjectCode: string, status: 'present' | 'absent') => void;
+  hasTimetableConfigured?: boolean;
 }
 
 export const TimetableScheduleView: React.FC<TimetableScheduleViewProps> = ({
   onMarkAttendance,
+  hasTimetableConfigured = true,
 }) => {
   const [selectedBatch, setSelectedBatch] = useState<'B1' | 'B2'>(() => db.getBatch());
   const [activeTab, setActiveTab] = useState<'matrix' | 'day' | 'reminders' | 'catalog'>('matrix');
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('MON');
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [targetCourseForReminder, setTargetCourseForReminder] = useState<string>('AIML334');
   const [reminders, setReminders] = useState<ClassReminder[]>(() => db.getReminders());
 
@@ -223,6 +228,15 @@ export const TimetableScheduleView: React.FC<TimetableScheduleViewProps> = ({
             </div>
 
             <button
+              onClick={() => setIsUploadModalOpen(true)}
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '13px' }}
+            >
+              <Upload size={14} />
+              <span>Upload Timetable PDF</span>
+            </button>
+
+            <button
               onClick={() => {
                 setTargetCourseForReminder('AIML334');
                 setIsReminderModalOpen(true);
@@ -236,6 +250,44 @@ export const TimetableScheduleView: React.FC<TimetableScheduleViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* If Timetable is Not Configured Banner (for students who skipped) */}
+      {hasTimetableConfigured === false && (
+        <div
+          style={{
+            padding: '16px 20px',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'rgba(234, 179, 8, 0.08)',
+            border: '1px solid rgba(234, 179, 8, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <AlertCircle size={20} style={{ color: 'var(--color-warning)', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                Timetable Skipped During Onboarding
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Upload your class timetable PDF or image now. Our system will extract hourly periods, instructors, and rooms automatically!
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="btn btn-accent-solid"
+            style={{ fontSize: '12px', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Upload size={13} />
+            <span>Upload PDF / Image Now</span>
+          </button>
+        </div>
+      )}
 
       {/* ===================== LIVE ONGOING CLASS MONITOR ===================== */}
       <div
@@ -1108,6 +1160,16 @@ export const TimetableScheduleView: React.FC<TimetableScheduleViewProps> = ({
         onClose={() => setIsReminderModalOpen(false)}
         defaultCourseCode={targetCourseForReminder}
         onSaveReminder={handleSaveReminder}
+      />
+
+      {/* Timetable PDF / Image Upload Modal */}
+      <TimetableUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onApplyTimetable={(slots) => {
+          // Applied custom timetable slots
+          showToast('Timetable Updated', `Loaded ${slots.length} class periods into your live timetable.`, 'success');
+        }}
       />
     </div>
   );

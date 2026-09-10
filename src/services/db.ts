@@ -14,6 +14,16 @@ export interface DBUser {
   course: string;
   university: string;
   studentId: string;
+  avatarUrl?: string;
+  dob?: string;
+  department?: string;
+  campus?: string;
+  roomNo?: string;
+  classTeacher?: string;
+  criterion?: number;
+  dailyGoal?: number;
+  onboardingCompleted?: boolean;
+  hasTimetableConfigured?: boolean;
   createdAt: string;
   lastLoginAt: string;
 }
@@ -136,6 +146,16 @@ const SEED_USERS: DBUser[] = [
     course: 'B.Tech AI & Data Science',
     university: 'School of Engineering & Technology',
     studentId: 'AI24-BTECH-303',
+    avatarUrl: '',
+    dob: '2005-04-16',
+    department: 'Department of AI and Data Science Engineering',
+    campus: 'Central Campus / Arch Block',
+    roomNo: 'Room No: 303, 3F- Arch Block',
+    classTeacher: 'Prof. Swati Raj',
+    criterion: 75,
+    dailyGoal: 2.0,
+    onboardingCompleted: true,
+    hasTimetableConfigured: true,
     createdAt: '2026-09-01T09:00:00Z',
     lastLoginAt: new Date().toISOString(),
   },
@@ -198,6 +218,16 @@ class DatabaseService {
       course: 'B.Tech AI & Data Science',
       university: 'School of Engineering & Technology',
       studentId: `AI26-BTECH-${Math.floor(100 + Math.random() * 900)}`,
+      avatarUrl: '',
+      dob: '',
+      department: '',
+      campus: '',
+      roomNo: '',
+      classTeacher: '',
+      criterion: 75,
+      dailyGoal: 2.0,
+      onboardingCompleted: false, // Must complete onboarding survey!
+      hasTimetableConfigured: false,
       createdAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
     };
@@ -262,6 +292,16 @@ class DatabaseService {
         course: 'B.Tech AI & Data Science',
         university: 'School of Engineering & Technology',
         studentId: `AI26-G-${Math.floor(100 + Math.random() * 900)}`,
+        avatarUrl: '',
+        dob: '',
+        department: '',
+        campus: '',
+        roomNo: '',
+        classTeacher: '',
+        criterion: 75,
+        dailyGoal: 2.0,
+        onboardingCompleted: false,
+        hasTimetableConfigured: false,
         createdAt: new Date().toISOString(),
         lastLoginAt: new Date().toISOString(),
       };
@@ -293,12 +333,34 @@ class DatabaseService {
   public getCurrentUser(): DBUser | null {
     const session = this.getCurrentSession();
     if (!session) {
-      // Return default seed user if available
-      const users = this.getUsers();
-      return users[0] || null;
+      return null;
     }
     const users = this.getUsers();
-    return users.find((u) => u.id === session.userId) || users[0] || null;
+    return users.find((u) => u.id === session.userId) || null;
+  }
+
+  public updateUser(userId: string, partial: Partial<DBUser>): DBUser | null {
+    const users = this.getUsers();
+    const user = users.find((u) => u.id === userId);
+    if (!user) return null;
+    Object.assign(user, partial);
+    this.saveUsers(users);
+    return user;
+  }
+
+  public getCustomTimetable(userId: string): any[] | null {
+    try {
+      const data = localStorage.getItem(`stellar_custom_timetable_${userId}`);
+      if (!data) return null;
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  }
+
+  public saveCustomTimetable(userId: string, slots: any[]): void {
+    localStorage.setItem(`stellar_custom_timetable_${userId}`, JSON.stringify(slots));
+    this.updateUser(userId, { hasTimetableConfigured: true });
   }
 
   private setSession(user: DBUser): void {
