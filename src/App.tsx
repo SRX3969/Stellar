@@ -68,7 +68,13 @@ export function AppContent() {
   const [subjects, setSubjects] = useState<Subject[]>(() => {
     try {
       const saved = localStorage.getItem('stellar_subjects');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: Subject[] = JSON.parse(saved);
+        // If old mock data with fictional professors exists, replace with genuine timetable subjects
+        if (!parsed.some((s) => s.professor?.includes('Aris Thorne') || s.code === 'CS301' || s.code === 'CS302')) {
+          return parsed;
+        }
+      }
     } catch {}
     return INITIAL_SUBJECTS;
   });
@@ -79,14 +85,18 @@ export function AppContent() {
       const saved = localStorage.getItem('stellar_study_minutes');
       if (saved) return Number(saved);
     } catch {}
-    return 80; // 1h 20m default baseline
+    return 0; // Starts clean at 0 mins
   });
 
   // Persistent Tasks State
   const [tasks, setTasks] = useState<Task[]>(() => {
     try {
       const saved = localStorage.getItem('stellar_tasks');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: Task[] = JSON.parse(saved);
+        // Filter out legacy mock tasks
+        return parsed.filter((t) => !['task-1', 'task-2', 'task-3', 'task-4', 'task-5', 'task-6', 'task-7', 'task-8', 'task-9', 'task-10'].includes(t.id));
+      }
     } catch {}
     return INITIAL_TASKS;
   });
@@ -95,7 +105,11 @@ export function AppContent() {
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
     try {
       const saved = localStorage.getItem('stellar_notifications');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: NotificationItem[] = JSON.parse(saved);
+        // Filter out legacy mock notifications
+        return parsed.filter((n) => !['notif-1', 'notif-2', 'notif-3', 'notif-4'].includes(n.id));
+      }
     } catch {}
     return NOTIFICATIONS;
   });

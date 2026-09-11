@@ -169,7 +169,45 @@ export const DocumentVaultView: React.FC<DocumentVaultViewProps> = ({ onNavigate
           gap: '16px',
         }}
       >
-        {filteredDocs.map((doc) => (
+        {filteredDocs.length === 0 ? (
+          <div
+            className="card-base"
+            style={{
+              padding: '48px 24px',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              gridColumn: '1 / -1',
+            }}
+          >
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--surface-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-muted)',
+              }}
+            >
+              <Files size={22} />
+            </div>
+            <div>
+              <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
+                No documents in {activeFolder} folder
+              </h4>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, maxWidth: '380px' }}>
+                Upload or drag &amp; drop syllabus PDFs, lecture slides, and notes above to organize your academic materials.
+              </p>
+            </div>
+          </div>
+        ) : (
+          filteredDocs.map((doc) => (
           <div
             key={doc.id}
             className="card-base"
@@ -266,7 +304,8 @@ export const DocumentVaultView: React.FC<DocumentVaultViewProps> = ({ onNavigate
               </div>
             </div>
           </div>
-        ))}
+        ))
+      )}
       </div>
 
       {/* Document Preview Modal */}

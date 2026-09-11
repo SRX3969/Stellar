@@ -378,12 +378,19 @@ class DatabaseService {
     try {
       const data = localStorage.getItem(REMINDERS_KEY);
       if (!data) {
-        localStorage.setItem(REMINDERS_KEY, JSON.stringify(INITIAL_CLASS_REMINDERS));
-        return INITIAL_CLASS_REMINDERS;
+        return [];
       }
-      return JSON.parse(data);
+      const parsed: ClassReminder[] = JSON.parse(data);
+      // Filter out any legacy dummy reminders
+      const cleaned = parsed.filter(
+        (r) => !['rem-1', 'rem-2', 'rem-3', 'rem-4'].includes(r.id)
+      );
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem(REMINDERS_KEY, JSON.stringify(cleaned));
+      }
+      return cleaned;
     } catch {
-      return INITIAL_CLASS_REMINDERS;
+      return [];
     }
   }
 

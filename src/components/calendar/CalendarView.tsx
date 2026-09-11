@@ -9,7 +9,9 @@ import {
   Sparkles,
   Plus
 } from 'lucide-react';
-import { TODAY_TIMELINE, UPCOMING_ASSESSMENTS } from '../../data/mockData';
+import { TODAY_TIMELINE } from '../../data/mockData';
+import { TIMETABLE_SLOTS } from '../../data/timetableData';
+import { db } from '../../services/db';
 
 type CalendarViewMode = 'month' | 'week' | 'day' | 'agenda';
 
@@ -22,19 +24,36 @@ interface CalendarEvent {
   subject?: string;
 }
 
-const EVENTS: CalendarEvent[] = [
-  { id: 'ev-1', title: 'Database Management Systems', time: '09:00 - 10:00', date: '2026-09-09', type: 'class', subject: 'DBMS' },
-  { id: 'ev-2', title: 'Artificial Intelligence & ML', time: '10:00 - 11:00', date: '2026-09-09', type: 'class', subject: 'AI/ML' },
-  { id: 'ev-3', title: 'Mathematics Assignment Due', time: '23:59', date: '2026-09-10', type: 'assignment', subject: 'Mathematics' },
-  { id: 'ev-4', title: 'Operating Systems Concurrency Lab', time: '14:00 - 16:00', date: '2026-09-11', type: 'class', subject: 'OS' },
-  { id: 'ev-5', title: 'DBMS CIA (Comprehensive Internal Assessment)', time: '10:00 - 12:00', date: '2026-09-18', type: 'cia', subject: 'DBMS' },
-  { id: 'ev-6', title: 'AI/ML Lab Practical Assessment', time: '14:00 - 17:00', date: '2026-09-22', type: 'cia', subject: 'AI/ML' },
-  { id: 'ev-7', title: 'OS Mid-Semester Theory Exam', time: '09:30 - 12:30', date: '2026-09-28', type: 'cia', subject: 'OS' },
-];
-
 export const CalendarView: React.FC = () => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('agenda');
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
+
+  const reminders = db.getReminders();
+  const userBatch = db.getBatch() || 'B1';
+
+  // Derive genuine events from student's institutional timetable
+  const timetableEvents: CalendarEvent[] = TIMETABLE_SLOTS.filter(
+    (s) => s.batch === 'ALL' || s.batch === userBatch
+  ).map((slot, idx) => ({
+    id: `tt-${slot.day}-${slot.period}-${idx}`,
+    title: `${slot.courseCode}: ${slot.courseName}`,
+    time: slot.time,
+    date: slot.day === 'MON' ? 'Monday' : slot.day === 'TUE' ? 'Tuesday' : slot.day === 'WED' ? 'Wednesday' : slot.day === 'THU' ? 'Thursday' : 'Friday',
+    type: slot.isLab ? 'study' : 'class',
+    subject: `${slot.faculty} • ${slot.room}`,
+  }));
+
+  // User created reminders
+  const reminderEvents: CalendarEvent[] = reminders.map((rem) => ({
+    id: rem.id,
+    title: rem.title,
+    time: rem.dueTime || 'Due Date',
+    date: rem.dueDate,
+    type: rem.type === 'exam' ? 'cia' : 'assignment',
+    subject: `${rem.courseCode}: ${rem.courseName}`,
+  }));
+
+  const events: CalendarEvent[] = [...reminderEvents, ...timetableEvents];
 
   const getEventTypeBadge = (type: CalendarEvent['type']) => {
     switch (type) {
@@ -161,53 +180,59 @@ export const CalendarView: React.FC = () => {
           {/* Upcoming Days in Agenda */}
           <div className="card-base" style={{ padding: '20px' }}>
             <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>
-              Upcoming Schedule & Academic Milestones
+              Academic Schedule &amp; Course Timelines
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {EVENTS.filter((e) => e.date !== '2026-09-09').map((event) => (
-                <div
-                  key={event.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '14px 16px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--surface-secondary)',
-                    border: '1px solid var(--border-default)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div
-                      style={{
-                        padding: '6px 10px',
-                        backgroundColor: 'var(--surface-elevated)',
-                        borderRadius: 'var(--radius-sm)',
-                        textAlign: 'center',
-                        minWidth: '60px',
-                        border: '1px solid var(--border-subtle)',
-                      }}
-                    >
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>SEP</div>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {event.date.split('-')[2]}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {event.title}
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Time: {event.time} • Subject: {event.subject}
-                      </div>
-                    </div>
-                  </div>
-
-                  {getEventTypeBadge(event.type)}
+              {events.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  No scheduled classes or deadlines found for this view.
                 </div>
-              ))}
+              ) : (
+                events.slice(0, 12).map((event) => (
+                  <div
+                    key={event.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--surface-secondary)',
+                      border: '1px solid var(--border-default)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div
+                        style={{
+                          padding: '6px 10px',
+                          backgroundColor: 'var(--surface-elevated)',
+                          borderRadius: 'var(--radius-sm)',
+                          textAlign: 'center',
+                          minWidth: '60px',
+                          border: '1px solid var(--border-subtle)',
+                        }}
+                      >
+                        <div style={{ fontSize: '10px', color: 'var(--accent-light)', fontWeight: 600 }}>PERIOD</div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {event.date}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {event.title}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          Time: {event.time} • {event.subject}
+                        </div>
+                      </div>
+                    </div>
+
+                    {getEventTypeBadge(event.type)}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -216,7 +241,7 @@ export const CalendarView: React.FC = () => {
         <div className="card-base" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {viewMode === 'month' ? 'September 2026 Overview' : viewMode === 'week' ? 'Week of Sep 7 - Sep 13' : 'Day: Sep 9'}
+              {viewMode === 'month' ? 'Academic Calendar Overview' : viewMode === 'week' ? 'Weekly Lecture Schedule' : 'Daily Schedule'}
             </h3>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button className="btn btn-secondary" style={{ padding: '6px 10px' }}><ChevronLeft size={16} /></button>
@@ -241,9 +266,8 @@ export const CalendarView: React.FC = () => {
             {/* Render 28 calendar cells */}
             {Array.from({ length: 28 }).map((_, i) => {
               const dayNumber = i + 1;
-              const isToday = dayNumber === 9;
-              const hasCIA = dayNumber === 18 || dayNumber === 22 || dayNumber === 28;
-              const hasAssignment = dayNumber === 10;
+              const dateStr = `2026-09-${String(dayNumber).padStart(2, '0')}`;
+              const dayReminders = reminders.filter((r) => r.dueDate === dateStr);
 
               return (
                 <div
@@ -252,35 +276,36 @@ export const CalendarView: React.FC = () => {
                     minHeight: '80px',
                     padding: '8px',
                     borderRadius: 'var(--radius-md)',
-                    backgroundColor: isToday ? 'var(--surface-elevated)' : 'var(--surface-secondary)',
-                    border: '1px solid',
-                    borderColor: isToday ? 'var(--accent-primary)' : 'var(--border-default)',
+                    backgroundColor: 'var(--surface-secondary)',
+                    border: '1px solid var(--border-default)',
                     textAlign: 'left',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                   }}
                 >
-                  <span style={{ fontSize: '12px', fontWeight: isToday ? 700 : 500, color: isToday ? 'var(--accent-light)' : 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>
                     {dayNumber}
                   </span>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {isToday && (
-                      <span style={{ fontSize: '10px', padding: '1px 4px', borderRadius: '3px', backgroundColor: 'var(--accent-subtle)', color: 'var(--accent-light)' }}>
-                        Today: 4 Classes
+                    {dayReminders.map((rem) => (
+                      <span
+                        key={rem.id}
+                        style={{
+                          fontSize: '10px',
+                          padding: '1px 4px',
+                          borderRadius: '3px',
+                          backgroundColor: rem.type === 'exam' ? 'var(--color-danger-bg)' : 'var(--color-warning-bg)',
+                          color: rem.type === 'exam' ? 'var(--color-danger)' : 'var(--color-warning)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {rem.title}
                       </span>
-                    )}
-                    {hasAssignment && (
-                      <span style={{ fontSize: '10px', padding: '1px 4px', borderRadius: '3px', backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
-                        Maths Due
-                      </span>
-                    )}
-                    {hasCIA && (
-                      <span style={{ fontSize: '10px', padding: '1px 4px', borderRadius: '3px', backgroundColor: 'var(--color-danger-bg)', color: 'var(--color-danger)' }}>
-                        CIA Exam
-                      </span>
-                    )}
+                    ))}
                   </div>
                 </div>
               );

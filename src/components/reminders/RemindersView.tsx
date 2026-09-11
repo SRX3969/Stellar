@@ -25,18 +25,26 @@ export interface SmartReminder {
   active: boolean;
 }
 
-const INITIAL_REMINDERS: SmartReminder[] = [
-  { id: 'rem-1', title: 'Submit Mathematics Problem Set 4', time: 'Tomorrow at 11:00 PM', frequency: 'one-time', category: 'academic', tag: 'Assignment', active: true },
-  { id: 'rem-2', title: 'DBMS 3NF & BCNF Targeted Flashcard Revision', time: 'Daily at 06:30 PM', frequency: 'recurring', category: 'academic', tag: 'Revision', active: true },
-  { id: 'rem-3', title: 'Evening Campus Gym Workout', time: 'Mon, Wed, Fri at 05:30 PM', frequency: 'recurring', category: 'personal', tag: 'Gym', active: true },
-  { id: 'rem-4', title: 'Call Academic Advisor regarding course credit transfer', time: 'Sep 12 at 04:00 PM', frequency: 'one-time', category: 'personal', tag: 'Call', active: true },
-  { id: 'rem-5', title: 'Tech Symposium Registration Deadline', time: 'Sep 15 at 02:00 PM', frequency: 'one-time', category: 'academic', tag: 'Event', active: true },
-];
-
 export const RemindersView: React.FC = () => {
-  const [reminders, setReminders] = useState<SmartReminder[]>(INITIAL_REMINDERS);
+  const [reminders, setReminders] = useState<SmartReminder[]>(() => {
+    try {
+      const data = localStorage.getItem('stellar_smart_reminders');
+      if (data) {
+        const parsed: SmartReminder[] = JSON.parse(data);
+        // Clean out any legacy mock data
+        return parsed.filter((r) => !['rem-1', 'rem-2', 'rem-3', 'rem-4', 'rem-5'].includes(r.id));
+      }
+    } catch {}
+    return [];
+  });
+
   const [filterCategory, setFilterCategory] = useState<'all' | 'academic' | 'personal'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Sync to local storage
+  React.useEffect(() => {
+    localStorage.setItem('stellar_smart_reminders', JSON.stringify(reminders));
+  }, [reminders]);
 
   // New reminder form
   const [title, setTitle] = useState('');
@@ -152,77 +160,124 @@ export const RemindersView: React.FC = () => {
 
       {/* Reminders List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {filtered.map((reminder) => (
+        {filtered.length === 0 ? (
           <div
-            key={reminder.id}
             className="card-base"
             style={{
-              padding: '16px 20px',
+              padding: '48px 24px',
+              textAlign: 'center',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              opacity: reminder.active ? 1 : 0.5,
-              transition: 'opacity var(--transition-fast)',
+              justifyContent: 'center',
+              gap: '12px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--surface-secondary)',
-                  border: '1px solid var(--border-subtle)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {getTagIcon(reminder.tag)}
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {reminder.title}
-                  </span>
-                  <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
-                    {reminder.tag}
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Clock size={12} /> {reminder.time}
-                  </span>
-                  <span>•</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {reminder.frequency === 'recurring' ? <Repeat size={12} /> : <Calendar size={12} />}
-                    <span style={{ textTransform: 'capitalize' }}>{reminder.frequency}</span>
-                  </span>
-                </div>
-              </div>
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--surface-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-muted)',
+              }}
+            >
+              <Bell size={22} />
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button
-                onClick={() => handleToggleActive(reminder.id)}
-                className={`btn ${reminder.active ? 'btn-secondary' : 'btn-ghost'}`}
-                style={{ fontSize: '12px', padding: '5px 10px' }}
-              >
-                {reminder.active ? 'Active' : 'Paused'}
-              </button>
-
-              <button
-                onClick={() => handleDelete(reminder.id)}
-                style={{ color: 'var(--text-muted)', padding: '4px' }}
-                title="Delete reminder"
-              >
-                <Trash2 size={15} />
-              </button>
+            <div>
+              <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
+                No reminders scheduled
+              </h4>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, maxWidth: '380px' }}>
+                Set prior alerts for your class assignments, submissions, lab practicals, or personal study sessions.
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+              className="btn btn-accent-solid"
+              style={{ fontSize: '12px', marginTop: '6px' }}
+            >
+              <Plus size={13} />
+              <span>Add First Reminder</span>
+            </button>
           </div>
-        ))}
+        ) : (
+          filtered.map((reminder) => (
+            <div
+              key={reminder.id}
+              className="card-base"
+              style={{
+                padding: '16px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                opacity: reminder.active ? 1 : 0.5,
+                transition: 'opacity var(--transition-fast)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--surface-secondary)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {getTagIcon(reminder.tag)}
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {reminder.title}
+                    </span>
+                    <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
+                      {reminder.tag}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={12} /> {reminder.time}
+                    </span>
+                    <span>•</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {reminder.frequency === 'recurring' ? <Repeat size={12} /> : <Calendar size={12} />}
+                      <span style={{ textTransform: 'capitalize' }}>{reminder.frequency}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                  onClick={() => handleToggleActive(reminder.id)}
+                  className={`btn ${reminder.active ? 'btn-secondary' : 'btn-ghost'}`}
+                  style={{ fontSize: '12px', padding: '5px 10px' }}
+                >
+                  {reminder.active ? 'Active' : 'Paused'}
+                </button>
+
+                <button
+                  onClick={() => handleDelete(reminder.id)}
+                  style={{ color: 'var(--text-muted)', padding: '4px' }}
+                  title="Delete reminder"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Create Reminder Modal */}
