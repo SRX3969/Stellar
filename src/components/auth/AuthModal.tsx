@@ -21,12 +21,14 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (userName: string, email?: string, batch?: 'B1' | 'B2') => void;
+  onLogout?: () => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  onLogout,
 }) => {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -81,17 +83,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   const handleGoogleOAuth = async () => {
+    setErrorMessage(null);
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setErrorMessage('Please enter your Gmail address below to continue with Google.');
+      return;
+    }
+    const check = validateGmailAddress(cleanEmail);
+    if (!check.isValid) {
+      setErrorMessage(check.error || 'Please enter a genuine Gmail address (@gmail.com).');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const googleEmail = email.trim().toLowerCase().endsWith('@gmail.com')
-        ? email.trim().toLowerCase()
-        : 'abhiram.stellar@gmail.com';
-      const googleName = name.trim() || 'Abhiram';
-
-      const result = await db.googleOAuthSignIn(googleEmail, googleName);
+      const googleName = name.trim() || cleanEmail.split('@')[0];
+      const result = await db.googleOAuthSignIn(cleanEmail, googleName);
       showToast('Google Sign-In Successful', `Signed in with ${result.user.email}`, 'success');
       onSuccess(result.user.fullName, result.user.email, result.user.batch);
       onClose();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Google authentication failed.');
     } finally {
       setIsLoading(false);
     }
@@ -101,6 +113,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     db.logout();
     showToast('Signed Out', 'You have been signed out of your STELLAR session.', 'info');
     onClose();
+    if (onLogout) {
+      onLogout();
+    }
   };
 
   return (

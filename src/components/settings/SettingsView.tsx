@@ -10,7 +10,9 @@ import {
   Smartphone,
   Sliders,
   UserCheck,
-  Clock
+  Clock,
+  LogOut,
+  UserX
 } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { useToast } from '../common/Toast';
@@ -20,6 +22,7 @@ interface SettingsViewProps {
   onToggleTheme: () => void;
   userProfile?: UserProfile;
   onUpdateProfile?: (updated: Partial<UserProfile>) => void;
+  onLogout?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -35,6 +38,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     dailyGoal: 2.0,
   },
   onUpdateProfile,
+  onLogout,
 }) => {
   const [aiReasoningMode, setAiReasoningMode] = useState<'concise' | 'pedagogical'>('pedagogical');
   const [attendanceAlerts, setAttendanceAlerts] = useState(true);
@@ -282,6 +286,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {aiReasoningMode === 'concise' && <Check size={16} style={{ color: 'var(--accent-primary)' }} />}
           </div>
         </div>
+      </div>
+
+      {/* Account Session & Sign Out */}
+      <div className="card-base" style={{ padding: '22px', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+          Account Session &amp; Security Gate
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+          Signed in as <strong style={{ color: 'var(--text-primary)' }}>{userProfile.email}</strong> ({userProfile.name}).
+        </p>
+
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#ef4444',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <LogOut size={14} />
+            <span>Sign Out &amp; Lock Workspace</span>
+          </button>
+        )}
       </div>
 
       {/* Save Button */}

@@ -1,16 +1,5 @@
 import React, { useState } from 'react';
-import {
-  User,
-  GraduationCap,
-  BookOpen,
-  Mail,
-  Calendar,
-  Shield,
-  Award,
-  Edit2,
-  Check,
-  Sparkles
-} from 'lucide-react';
+import { User, Mail, GraduationCap, Building2, Calendar, Target, Edit2, Check, Sparkles, LogOut, ShieldAlert } from 'lucide-react';
 import { SUBJECTS as DEFAULT_SUBJECTS } from '../../data/mockData';
 import { Subject, UserProfile } from '../../types';
 import { useToast } from '../common/Toast';
@@ -20,6 +9,7 @@ interface ProfileViewProps {
   subjects?: Subject[];
   onUpdateProfile?: (updated: Partial<UserProfile>) => void;
   onOpenOnboarding?: () => void;
+  onLogout?: () => void;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -37,6 +27,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   subjects = DEFAULT_SUBJECTS,
   onUpdateProfile,
   onOpenOnboarding,
+  onLogout,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(userProfile.name);
@@ -320,6 +311,63 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Account Security & Sign Out */}
+      <div
+        className="card-base"
+        style={{
+          padding: '22px',
+          border: '1px solid rgba(239, 68, 68, 0.25)',
+          backgroundColor: 'var(--surface-primary)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '16px',
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', fontWeight: 600, fontSize: '15px' }}>
+            <ShieldAlert size={18} style={{ color: 'var(--color-danger)' }} />
+            <span>Account Session &amp; Security</span>
+          </div>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Currently authenticated as <strong style={{ color: 'var(--text-primary)' }}>{userProfile.email}</strong>. Logging out will revoke this browser session and enforce the login gate.
+          </p>
+        </div>
+
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '9px 16px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#ef4444',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all var(--transition-fast)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#ef4444';
+              e.currentTarget.style.color = '#fff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+              e.currentTarget.style.color = '#ef4444';
+            }}
+          >
+            <LogOut size={14} />
+            <span>Sign Out of STELLAR</span>
+          </button>
+        )}
       </div>
     </div>
   );

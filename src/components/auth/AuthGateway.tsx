@@ -69,29 +69,26 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ onAuthSuccess }) => {
   };
 
   const handleGoogleOAuth = async () => {
+    setErrorMessage(null);
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setErrorMessage('Please enter your Gmail address below to continue with Google.');
+      return;
+    }
+    const check = validateGmailAddress(cleanEmail);
+    if (!check.isValid) {
+      setErrorMessage(check.error || 'Please enter a genuine Gmail address (@gmail.com).');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const googleEmail = email.trim().toLowerCase().endsWith('@gmail.com')
-        ? email.trim().toLowerCase()
-        : 'abhiram.stellar@gmail.com';
-      const googleName = name.trim() || 'Abhiram';
-
-      const result = await db.googleOAuthSignIn(googleEmail, googleName);
+      const googleName = name.trim() || cleanEmail.split('@')[0];
+      const result = await db.googleOAuthSignIn(cleanEmail, googleName);
       showToast('Google Sign-In Successful', `Signed in as ${result.user.email}`, 'success');
       onAuthSuccess(result.user);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleQuickDemoAccess = async () => {
-    setIsLoading(true);
-    try {
-      const result = await db.login('abhiram.stellar@gmail.com', 'StellarAI@2026');
-      if (result.success && result.user) {
-        showToast('Welcome Abhiram', 'Signed in to Demo Student Workspace.', 'success');
-        onAuthSuccess(result.user);
-      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Google authentication failed.');
     } finally {
       setIsLoading(false);
     }
@@ -471,26 +468,20 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ onAuthSuccess }) => {
               </button>
             </div>
 
-            {/* 1-Click Demo Login button */}
-            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--border-default)', textAlign: 'center' }}>
-              <button
-                type="button"
-                onClick={handleQuickDemoAccess}
+            {/* Security Assurance */}
+            <div style={{ paddingTop: '12px', borderTop: '1px solid var(--border-default)', textAlign: 'center' }}>
+              <div
                 style={{
-                  fontSize: '12px',
-                  color: 'var(--accent-primary)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 500,
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: '6px',
                 }}
               >
-                <Sparkles size={12} />
-                <span>Quick Access with Demo Student Account (Abhiram)</span>
-              </button>
+                <ShieldCheck size={13} style={{ color: 'var(--accent-primary)' }} />
+                <span>Verified institutional authentication required to access workspace</span>
+              </div>
             </div>
           </form>
         </div>

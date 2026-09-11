@@ -18,7 +18,8 @@ import {
   BellRing,
   LogIn,
   Sparkles,
-  CalendarClock
+  CalendarClock,
+  LogOut
 } from 'lucide-react';
 
 export type NavRoute =
@@ -48,6 +49,7 @@ interface SidebarProps {
   onCloseMobile?: () => void;
   onOpenAuth?: () => void;
   onOpenOnboarding?: () => void;
+  onLogout?: () => void;
   userName?: string;
   userAvatar?: string;
   userCourse?: string;
@@ -63,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onOpenAuth,
   onOpenOnboarding,
+  onLogout,
   userName = 'Abhiram',
   userAvatar,
   userCourse = 'Computer Science',
@@ -461,6 +464,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <LogIn size={12} />
                 <span>Account</span>
+              </button>
+            )}
+
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                title="Sign out of current account"
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  padding: '5px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'transparent',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  transition: 'all var(--transition-fast)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                  e.currentTarget.style.color = '#ef4444';
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                }}
+              >
+                <LogOut size={12} />
+                <span>Sign Out</span>
               </button>
             )}
           </div>

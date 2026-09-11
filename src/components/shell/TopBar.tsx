@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles, Menu, Bell, SunMedium, Moon } from 'lucide-react';
+import { Search, Sparkles, Menu, Bell, SunMedium, Moon, LogOut } from 'lucide-react';
 import { NavRoute } from './Sidebar';
 
 interface TopBarProps {
@@ -13,6 +13,7 @@ interface TopBarProps {
   userName?: string;
   userAvatar?: string;
   onNavigateProfile?: () => void;
+  onLogout?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -26,6 +27,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   userName = 'Abhiram',
   userAvatar,
   onNavigateProfile,
+  onLogout,
 }) => {
   const getPageTitle = (route: NavRoute) => {
     switch (route) {
@@ -295,6 +297,40 @@ export const TopBar: React.FC<TopBarProps> = ({
             ) : (
               userName.charAt(0) || 'A'
             )}
+          </button>
+        )}
+
+        {/* Dedicated Sign Out Button */}
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            title="Sign out of STELLAR"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 10px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'transparent',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-muted)',
+              fontSize: '12px',
+              cursor: 'pointer',
+              transition: 'all var(--transition-fast)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+              e.currentTarget.style.color = '#ef4444';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = 'var(--text-muted)';
+              e.currentTarget.style.borderColor = 'var(--border-default)';
+            }}
+          >
+            <LogOut size={14} />
+            <span className="hide-on-mobile">Sign Out</span>
           </button>
         )}
       </div>

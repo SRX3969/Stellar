@@ -302,6 +302,14 @@ export function AppContent() {
     setIsOnboardingOpen(false);
   };
 
+  const { showToast } = useToast();
+
+  const handleLogout = () => {
+    db.logout();
+    setCurrentUser(null);
+    showToast('Signed Out', 'You have been securely signed out. Access to STELLAR is now locked.', 'info');
+  };
+
   // MANDATORY LOGIN GATE: Only authenticated users can access the website
   if (!currentUser) {
     return <AuthGateway onAuthSuccess={handleAuthSuccess} />;
@@ -319,6 +327,7 @@ export function AppContent() {
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenOnboarding={() => setIsOnboardingOpen(true)}
+        onLogout={handleLogout}
         userName={userProfile.name}
         userAvatar={userProfile.avatarUrl}
         userCourse={userProfile.course || "B.Tech AI"}
@@ -339,6 +348,7 @@ export function AppContent() {
           userName={userProfile.name}
           userAvatar={userProfile.avatarUrl}
           onNavigateProfile={() => setCurrentRoute('profile')}
+          onLogout={handleLogout}
         />
 
         {/* Scrollable View Content */}
@@ -429,6 +439,7 @@ export function AppContent() {
               onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
               userProfile={userProfile}
               onUpdateProfile={handleUpdateProfile}
+              onLogout={handleLogout}
             />
           )}
 
@@ -438,6 +449,7 @@ export function AppContent() {
               subjects={subjects}
               onUpdateProfile={handleUpdateProfile}
               onOpenOnboarding={() => setIsOnboardingOpen(true)}
+              onLogout={handleLogout}
             />
           )}
         </main>
@@ -492,6 +504,7 @@ export function AppContent() {
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
+        onLogout={handleLogout}
         onSuccess={(name, email, batch) => {
           handleUpdateProfile({
             name,
