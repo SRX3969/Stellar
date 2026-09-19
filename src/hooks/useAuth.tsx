@@ -190,9 +190,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (username: string, password: string) => {
     const cleanUsername = username.trim().toLowerCase();
 
-    // 1. Try Convex mutation first
+    // 1. Try Convex mutation first (with timeout to prevent hanging)
     try {
-      const result = await loginByUsernameMutation({ username: cleanUsername, password });
+      const mutationPromise = loginByUsernameMutation({ username: cleanUsername, password });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Convex timeout')), 4000)
+      );
+
+      const result = await Promise.race([mutationPromise, timeoutPromise]);
       if (result.success && result.user && result.token) {
         const authUser = result.user as AuthUser;
         setUser(authUser);
@@ -205,7 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: result.error };
       }
     } catch {
-      // Convex offline — fall through to demo credentials
+      // Convex offline or timed out — fall through to demo credentials
     }
 
     // 2. Fallback: check demo credentials when Convex is unavailable
@@ -242,15 +247,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Password must be at least 8 characters.' };
     }
 
-    // 1. Try Convex mutation
+    // 1. Try Convex mutation (with timeout)
     try {
-      const result = await registerMutation({
+      const mutationPromise = registerMutation({
         username: cleanUsername,
         email: cleanEmail,
         password,
         fullName,
         batch,
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Convex timeout')), 4000)
+      );
+
+      const result = await Promise.race([mutationPromise, timeoutPromise]);
       if (result.success && result.user && result.token) {
         const authUser = result.user as AuthUser;
         setUser(authUser);
@@ -263,7 +273,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: result.error };
       }
     } catch {
-      // Convex offline
+      // Convex offline or timed out
     }
 
     // 2. Client-side fallback for demo/offline use
