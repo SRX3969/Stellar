@@ -29,19 +29,18 @@ import { SettingsView } from './components/settings/SettingsView';
 import { ProfileView } from './components/profile/ProfileView';
 import { TimetableScheduleView } from './components/timetable/TimetableScheduleView';
 
-// Auth Components (PRESERVED)
-import { AuthGateway } from './components/auth/AuthGateway';
+// Auth Components
+import { LoginPage, SignupPage } from './components/auth/AuthGateway';
 import { AuthModal } from './components/auth/AuthModal';
 import { OnboardingModal } from './components/auth/OnboardingModal';
 
-// New Portal Components
+// Portal Components
 import { AdminLayout } from './components/admin/AdminLayout';
 import { TeacherLayout } from './components/teacher/TeacherLayout';
 import { LandingPage } from './components/landing/LandingPage';
 
 // Common
 import { ToastProvider, useToast } from './components/common/Toast';
-import { db } from './services/db';
 
 import { INITIAL_TASKS, NOTIFICATIONS, SUBJECTS as INITIAL_SUBJECTS } from './data/mockData';
 import { Task, NotificationItem, Subject, UserProfile } from './types';
@@ -84,13 +83,47 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    // Redirect to correct dashboard based on role
     const roleRoutes: Record<string, string> = {
       admin: '/admin/dashboard',
       teacher: '/teacher/dashboard',
       student: '/student/dashboard',
     };
     return <Navigate to={roleRoutes[user.role] || '/login'} replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// ============================================================
+// AUTH REDIRECT (redirects authenticated users away from auth pages)
+// ============================================================
+
+function AuthRedirect({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backgroundColor: '#f8f7fa',
+      }}>
+        <div style={{
+          width: '36px', height: '36px',
+          border: '3px solid #e8e7ec', borderTopColor: '#7c3aed',
+          borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (isAuthenticated && user) {
+    const roleRoutes: Record<string, string> = {
+      admin: '/admin/dashboard',
+      teacher: '/teacher/dashboard',
+      student: '/student/dashboard',
+    };
+    return <Navigate to={roleRoutes[user.role] || '/student/dashboard'} replace />;
   }
 
   return <>{children}</>;
@@ -455,99 +488,6 @@ function StudentPortal() {
 }
 
 // ============================================================
-// LOGIN PAGE (Enhanced AuthGateway with routing)
-// ============================================================
-
-function LoginPage() {
-  const { login, register, isAuthenticated, user, loginAsDemoRole } = useAuth();
-  const navigate = useNavigate();
-  const { showToast } = useToast();
-
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      const roleRoutes: Record<string, string> = {
-        admin: '/admin/dashboard',
-        teacher: '/teacher/dashboard',
-        student: '/student/dashboard',
-      };
-      navigate(roleRoutes[user.role] || '/student/dashboard', { replace: true });
-    }
-  }, [isAuthenticated, user, navigate]);
-
-  const handleAuthSuccess = (authUser: any) => {
-    if (authUser.role === 'admin' || authUser.role === 'teacher' || authUser.role === 'student') {
-      loginAsDemoRole(authUser.role);
-    } else {
-      loginAsDemoRole('student');
-    }
-    showToast('Signed In', `Welcome, ${authUser.fullName || 'User'}.`, 'success');
-  };
-
-  return (
-    <div style={{ position: 'relative' }}>
-      {/* Instant Demo Role Access Floating Bar */}
-      <div style={{
-        position: 'fixed',
-        top: '16px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '6px 14px',
-        backgroundColor: 'rgba(18, 18, 24, 0.92)',
-        border: '1px solid var(--border-strong)',
-        borderRadius: '30px',
-        backdropFilter: 'blur(12px)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-        maxWidth: '92vw',
-        overflowX: 'auto',
-      }}>
-        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-          Instant Demo:
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            loginAsDemoRole('student');
-            showToast('Student Session', 'Logged in as Abhiram (Student).', 'success');
-          }}
-          className="btn btn-secondary"
-          style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '16px', height: '28px', whiteSpace: 'nowrap' }}
-        >
-          🎓 Student
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            loginAsDemoRole('teacher');
-            showToast('Faculty Session', 'Logged in as Prof. Swati Raj (Faculty).', 'success');
-          }}
-          className="btn btn-secondary"
-          style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '16px', height: '28px', whiteSpace: 'nowrap' }}
-        >
-          👩‍🏫 Faculty
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            loginAsDemoRole('admin');
-            showToast('Admin Session', 'Logged in as System Administrator.', 'success');
-          }}
-          className="btn btn-secondary"
-          style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '16px', height: '28px', whiteSpace: 'nowrap' }}
-        >
-          👑 Admin
-        </button>
-      </div>
-
-      <AuthGateway onAuthSuccess={handleAuthSuccess} />
-    </div>
-  );
-}
-
-// ============================================================
 // MAIN APP ROUTER
 // ============================================================
 
@@ -556,7 +496,16 @@ function AppRoutes() {
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={
+        <AuthRedirect>
+          <LoginPage />
+        </AuthRedirect>
+      } />
+      <Route path="/signup" element={
+        <AuthRedirect>
+          <SignupPage />
+        </AuthRedirect>
+      } />
 
       {/* Student Portal (all existing features preserved) */}
       <Route path="/student/*" element={

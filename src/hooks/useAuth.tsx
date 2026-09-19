@@ -1,5 +1,5 @@
 // Authentication Context & Hooks for Stellar
-// Provides auth state, role-based access control, session management, and instant demo switching
+// Provides auth state, role-based access control, and session management
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useConvex, useMutation } from 'convex/react';
@@ -10,6 +10,7 @@ export type UserRole = 'admin' | 'teacher' | 'student';
 
 export interface AuthUser {
   _id: string;
+  username?: string;
   email: string;
   fullName: string;
   role: UserRole;
@@ -46,11 +47,10 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   role: UserRole | null;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (email: string, password: string, fullName: string, batch?: string) => Promise<{ success: boolean; error?: string }>;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (username: string, email: string, password: string, fullName: string, batch?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<AuthUser>) => void;
-  loginAsDemoRole: (role: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -58,38 +58,46 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const TOKEN_KEY = 'stellar_auth_token';
 const USER_KEY = 'stellar_active_user';
 
-export const DEMO_USERS: Record<UserRole, AuthUser> = {
+// Demo users for when Convex backend is offline
+const DEMO_USERS: Record<UserRole, AuthUser> = {
   admin: {
-    _id: 'user-admin-001',
+    _id: 'demo-admin-001',
+    username: 'stellar_admin',
     email: 'admin@stellar.edu',
     fullName: 'System Administrator',
     role: 'admin',
     isActive: true,
     department: 'Administration',
-    designation: 'Chief Academic Registrar',
+    designation: 'System Administrator',
     employeeId: 'ADM-2026-001',
     university: 'School of Engineering and Technology',
+    onboardingCompleted: true,
+    hasTimetableConfigured: true,
     createdAt: new Date().toISOString(),
     lastLoginAt: new Date().toISOString(),
   },
   teacher: {
-    _id: 'user-teacher-001',
+    _id: 'demo-teacher-001',
+    username: 'stellar_teacher',
     email: 'swati.raj@stellar.edu',
     fullName: 'Prof. Swati Raj',
     role: 'teacher',
     isActive: true,
     department: 'Department of AI and Data Science Engineering',
     designation: 'Assistant Professor',
-    specialization: 'Database Management Systems & Information Systems',
+    specialization: 'Database Management Systems',
     employeeId: 'FAC-2026-001',
     campus: 'Central Campus / Arch Block',
     roomNo: 'Cabin 304, 3F Arch Block',
     university: 'School of Engineering and Technology',
+    onboardingCompleted: true,
+    hasTimetableConfigured: true,
     createdAt: new Date().toISOString(),
     lastLoginAt: new Date().toISOString(),
   },
   student: {
-    _id: 'user-student-001',
+    _id: 'demo-student-001',
+    username: 'stellar_student',
     email: 'abhiram.stellar@gmail.com',
     fullName: 'Abhiram',
     role: 'student',
@@ -111,6 +119,13 @@ export const DEMO_USERS: Record<UserRole, AuthUser> = {
   },
 };
 
+// Demo credentials (only checked when Convex is offline)
+const DEMO_CREDENTIALS: Array<{ username: string; password: string; role: UserRole }> = [
+  { username: 'stellar_admin', password: 'St3llar!Admin2026', role: 'admin' },
+  { username: 'stellar_teacher', password: 'St3llar!Teach2026', role: 'teacher' },
+  { username: 'stellar_student', password: 'St3llar!Stud2026', role: 'student' },
+];
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
@@ -123,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   const convex = useConvex();
-  const loginMutation = useMutation(api.users.login);
+  const loginByUsernameMutation = useMutation(api.users.loginByUsername);
   const registerMutation = useMutation(api.users.register);
   const logoutMutation = useMutation(api.users.logout);
 
@@ -148,10 +163,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (savedToken && convex) {
         try {
-          // Attempt convex session validation with a timeout guard
           const validationPromise = convex.query(api.users.validateSession, { token: savedToken });
           const timeoutPromise = new Promise<{ valid: boolean; user: null }>((resolve) =>
-            setTimeout(() => resolve({ valid: false, user: null }), 1800)
+            setTimeout(() => resolve({ valid: false, user: null }), 2000)
           );
 
           const result = await Promise.race([validationPromise, timeoutPromise]);
@@ -173,12 +187,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => { isMounted = false; };
   }, [convex]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const cleanEmail = email.trim().toLowerCase();
+  const login = useCallback(async (username: string, password: string) => {
+    const cleanUsername = username.trim().toLowerCase();
 
-    // 1. Try Convex mutation if available
+    // 1. Try Convex mutation first
     try {
-      const result = await loginMutation({ email: cleanEmail, password });
+      const result = await loginByUsernameMutation({ username: cleanUsername, password });
       if (result.success && result.user && result.token) {
         const authUser = result.user as AuthUser;
         setUser(authUser);
@@ -187,67 +201,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem(USER_KEY, JSON.stringify(authUser));
         return { success: true };
       }
-    } catch {
-      // Fallback to local authentication when Convex backend is offline
-    }
-
-    // 2. Fallback check against known demo accounts & passwords
-    if (cleanEmail === 'admin@stellar.edu' && (password === 'StellarAdmin@2026' || password === 'admin')) {
-      const adminUser = DEMO_USERS.admin;
-      setUser(adminUser);
-      const fakeToken = `token-admin-${Date.now()}`;
-      setToken(fakeToken);
-      localStorage.setItem(TOKEN_KEY, fakeToken);
-      localStorage.setItem(USER_KEY, JSON.stringify(adminUser));
-      return { success: true };
-    }
-
-    if (cleanEmail === 'swati.raj@stellar.edu' && (password === 'StellarTeacher@2026' || password === 'teacher' || password === 'faculty')) {
-      const teacherUser = DEMO_USERS.teacher;
-      setUser(teacherUser);
-      const fakeToken = `token-teacher-${Date.now()}`;
-      setToken(fakeToken);
-      localStorage.setItem(TOKEN_KEY, fakeToken);
-      localStorage.setItem(USER_KEY, JSON.stringify(teacherUser));
-      return { success: true };
-    }
-
-    if ((cleanEmail === 'abhiram.stellar@gmail.com' || cleanEmail.includes('abhiram')) && (password === 'StellarAI@2026' || password === 'student' || password.length >= 4)) {
-      const studentUser = DEMO_USERS.student;
-      setUser(studentUser);
-      const fakeToken = `token-student-${Date.now()}`;
-      setToken(fakeToken);
-      localStorage.setItem(TOKEN_KEY, fakeToken);
-      localStorage.setItem(USER_KEY, JSON.stringify(studentUser));
-      return { success: true };
-    }
-
-    // Check localStorage registered accounts
-    try {
-      const savedAccounts = localStorage.getItem('stellar_registered_accounts');
-      if (savedAccounts) {
-        const accounts: Array<{ email: string; password: string; user: AuthUser }> = JSON.parse(savedAccounts);
-        const matched = accounts.find((a) => a.email.toLowerCase() === cleanEmail && a.password === password);
-        if (matched) {
-          setUser(matched.user);
-          const fakeToken = `token-reg-${Date.now()}`;
-          setToken(fakeToken);
-          localStorage.setItem(TOKEN_KEY, fakeToken);
-          localStorage.setItem(USER_KEY, JSON.stringify(matched.user));
-          return { success: true };
-        }
+      if (!result.success && result.error) {
+        return { success: false, error: result.error };
       }
-    } catch {}
+    } catch {
+      // Convex offline — fall through to demo credentials
+    }
 
-    return { success: false, error: 'Invalid credentials. Please verify your email and password or use quick demo login.' };
-  }, [loginMutation]);
+    // 2. Fallback: check demo credentials when Convex is unavailable
+    const matched = DEMO_CREDENTIALS.find(
+      (c) => c.username === cleanUsername && c.password === password
+    );
+    if (matched) {
+      const demoUser = DEMO_USERS[matched.role];
+      setUser(demoUser);
+      const demoToken = `demo-token-${matched.role}-${Date.now()}`;
+      setToken(demoToken);
+      localStorage.setItem(TOKEN_KEY, demoToken);
+      localStorage.setItem(USER_KEY, JSON.stringify(demoUser));
+      return { success: true };
+    }
 
-  const register = useCallback(async (email: string, password: string, fullName: string, batch?: string) => {
+    return { success: false, error: 'Invalid username or password.' };
+  }, [loginByUsernameMutation]);
+
+  const register = useCallback(async (username: string, email: string, password: string, fullName: string, batch?: string) => {
+    const cleanUsername = username.trim().toLowerCase();
     const cleanEmail = email.trim().toLowerCase();
+
+    // Validate username
+    if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+      return { success: false, error: 'Username must be between 3 and 30 characters.' };
+    }
+    if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+      return { success: false, error: 'Username can only contain lowercase letters, numbers, and underscores.' };
+    }
+
+    // Validate password
+    if (password.length < 8) {
+      return { success: false, error: 'Password must be at least 8 characters.' };
+    }
 
     // 1. Try Convex mutation
     try {
-      const result = await registerMutation({ email: cleanEmail, password, fullName, batch });
+      const result = await registerMutation({
+        username: cleanUsername,
+        email: cleanEmail,
+        password,
+        fullName,
+        batch,
+      });
       if (result.success && result.user && result.token) {
         const authUser = result.user as AuthUser;
         setUser(authUser);
@@ -256,13 +259,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem(USER_KEY, JSON.stringify(authUser));
         return { success: true };
       }
+      if (!result.success && result.error) {
+        return { success: false, error: result.error };
+      }
     } catch {
-      // Fallback
+      // Convex offline
     }
 
-    // 2. Client-side registration fallback
+    // 2. Client-side fallback for demo/offline use
     const newUser: AuthUser = {
       _id: `user-${Date.now()}`,
+      username: cleanUsername,
       email: cleanEmail,
       fullName: fullName.trim(),
       role: 'student',
@@ -275,20 +282,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       department: 'Department of AI and Data Science Engineering',
       criterion: 75,
       dailyGoal: 2.0,
-      onboardingCompleted: true,
-      hasTimetableConfigured: true,
+      onboardingCompleted: false,
+      hasTimetableConfigured: false,
       createdAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
     };
 
-    try {
-      const raw = localStorage.getItem('stellar_registered_accounts');
-      const accounts = raw ? JSON.parse(raw) : [];
-      accounts.push({ email: cleanEmail, password, user: newUser });
-      localStorage.setItem('stellar_registered_accounts', JSON.stringify(accounts));
-    } catch {}
-
-    const fakeToken = `token-new-${Date.now()}`;
+    const fakeToken = `offline-token-${Date.now()}`;
     setUser(newUser);
     setToken(fakeToken);
     localStorage.setItem(TOKEN_KEY, fakeToken);
@@ -296,15 +296,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return { success: true };
   }, [registerMutation]);
-
-  const loginAsDemoRole = useCallback((role: UserRole) => {
-    const demoUser = DEMO_USERS[role];
-    setUser(demoUser);
-    const demoToken = `demo-token-${role}-${Date.now()}`;
-    setToken(demoToken);
-    localStorage.setItem(TOKEN_KEY, demoToken);
-    localStorage.setItem(USER_KEY, JSON.stringify(demoUser));
-  }, []);
 
   const logout = useCallback(async () => {
     if (token) {
@@ -339,7 +330,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         updateUser,
-        loginAsDemoRole,
       }}
     >
       {children}

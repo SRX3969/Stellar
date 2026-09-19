@@ -91,15 +91,16 @@ export const AdminLayout: React.FC = () => {
         }}>
           <div onClick={() => handleNavClick('dashboard')} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
             <div style={{
-              width: '28px', height: '28px', borderRadius: '7px',
-              backgroundColor: 'var(--surface-elevated)', border: '1px solid var(--accent-border)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)',
+              width: '30px', height: '30px', borderRadius: '8px',
+              background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
+              boxShadow: '0 2px 8px rgba(124, 58, 237, 0.3)',
             }}>
               <Compass size={17} strokeWidth={2.2} />
             </div>
             <div>
-              <span style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--text-primary)', display: 'block', lineHeight: 1.1 }}>STELLAR</span>
-              <span style={{ fontSize: '10px', color: 'var(--accent-primary)', letterSpacing: '0.02em', fontWeight: 600 }}>ADMIN PORTAL</span>
+              <span style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text-primary)', display: 'block', lineHeight: 1.1 }}>Stellar</span>
+              <span style={{ fontSize: '10px', color: 'var(--accent-light)', letterSpacing: '0.02em', fontWeight: 500 }}>Admin Portal</span>
             </div>
           </div>
         </div>
@@ -116,10 +117,10 @@ export const AdminLayout: React.FC = () => {
                 style={{
                   display: 'flex', alignItems: 'center', gap: '10px',
                   width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)',
-                  backgroundColor: isActive ? 'var(--surface-elevated)' : 'transparent',
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  backgroundColor: isActive ? 'var(--accent-subtle)' : 'transparent',
+                  color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
                   fontWeight: isActive ? 500 : 400, fontSize: '13px',
-                  border: `1px solid ${isActive ? 'var(--border-strong)' : 'transparent'}`,
+                  border: `1px solid ${isActive ? 'var(--accent-border)' : 'transparent'}`,
                   transition: 'all var(--transition-fast)',
                 }}
               >

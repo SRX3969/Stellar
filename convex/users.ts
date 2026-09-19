@@ -1,5 +1,5 @@
 // Convex Authentication & User Management Functions
-// Server-side auth with role-based access control
+// Server-side auth with role-based access control and username-based login
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
@@ -23,46 +23,70 @@ function generateToken(): string {
 }
 
 // ============================================================
-// REGISTRATION
+// REGISTRATION (Public signup creates STUDENT accounts only)
 // ============================================================
 
 export const register = mutation({
   args: {
+    username: v.string(),
     email: v.string(),
     password: v.string(),
     fullName: v.string(),
-    role: v.optional(v.union(v.literal("admin"), v.literal("teacher"), v.literal("student"))),
     batch: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const cleanUsername = args.username.trim().toLowerCase();
     const cleanEmail = args.email.trim().toLowerCase();
 
-    // Check if user already exists
-    const existing = await ctx.db
+    // Validate username format
+    if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+      return { success: false, error: "Username must be between 3 and 30 characters." };
+    }
+    if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+      return { success: false, error: "Username can only contain lowercase letters, numbers, and underscores." };
+    }
+
+    // Check if username already exists
+    const existingUsername = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", cleanUsername))
+      .first();
+
+    if (existingUsername) {
+      return { success: false, error: "This username is already taken. Please choose another." };
+    }
+
+    // Check if email already exists
+    const existingEmail = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", cleanEmail))
       .first();
 
-    if (existing) {
+    if (existingEmail) {
       return { success: false, error: "An account with this email already exists." };
+    }
+
+    // Password validation
+    if (args.password.length < 8) {
+      return { success: false, error: "Password must be at least 8 characters long." };
     }
 
     const passwordHash = await hashPassword(args.password);
     const now = new Date().toISOString();
 
+    // Public registration ALWAYS creates student accounts (prevents privilege escalation)
     const userId = await ctx.db.insert("users", {
+      username: cleanUsername,
       email: cleanEmail,
       fullName: args.fullName.trim(),
       passwordHash,
-      role: args.role || "student",
+      role: "student",
       isActive: true,
       batch: args.batch || "B1",
       semester: "III Sem",
       course: "B.Tech AI & Data Science",
       university: "School of Engineering & Technology",
-      studentId: args.role === "student" || !args.role
-        ? `AI26-BTECH-${Math.floor(100 + Math.random() * 900)}`
-        : undefined,
+      studentId: `AI26-BTECH-${Math.floor(100 + Math.random() * 900)}`,
       criterion: 75,
       dailyGoal: 2.0,
       onboardingCompleted: false,
@@ -87,7 +111,53 @@ export const register = mutation({
 });
 
 // ============================================================
-// LOGIN
+// LOGIN BY USERNAME
+// ============================================================
+
+export const loginByUsername = mutation({
+  args: {
+    username: v.string(),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const cleanUsername = args.username.trim().toLowerCase();
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", cleanUsername))
+      .first();
+
+    if (!user) {
+      return { success: false, error: "No account found with this username." };
+    }
+
+    if (!user.isActive) {
+      return { success: false, error: "This account has been deactivated. Contact an administrator." };
+    }
+
+    const passwordHash = await hashPassword(args.password);
+    if (user.passwordHash !== passwordHash) {
+      return { success: false, error: "Incorrect password." };
+    }
+
+    // Update last login
+    await ctx.db.patch(user._id, { lastLoginAt: new Date().toISOString() });
+
+    // Create new session
+    const token = generateToken();
+    await ctx.db.insert("sessions", {
+      userId: user._id,
+      token,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString(),
+    });
+
+    return { success: true, user: { ...user, _id: user._id }, token };
+  },
+});
+
+// ============================================================
+// LOGIN BY EMAIL (Legacy support)
 // ============================================================
 
 export const login = mutation({
@@ -210,11 +280,12 @@ export const getAllUsers = query({
 });
 
 // ============================================================
-// USER MUTATIONS (Admin)
+// USER MUTATIONS (Admin-only operations)
 // ============================================================
 
 export const createUser = mutation({
   args: {
+    username: v.optional(v.string()),
     email: v.string(),
     fullName: v.string(),
     password: v.string(),
@@ -231,7 +302,9 @@ export const createUser = mutation({
   },
   handler: async (ctx, args) => {
     const cleanEmail = args.email.trim().toLowerCase();
+    const cleanUsername = args.username?.trim().toLowerCase();
 
+    // Check email uniqueness
     const existing = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", cleanEmail))
@@ -241,10 +314,23 @@ export const createUser = mutation({
       return { success: false, error: "Email already registered." };
     }
 
+    // Check username uniqueness if provided
+    if (cleanUsername) {
+      const existingUsername = await ctx.db
+        .query("users")
+        .withIndex("by_username", (q) => q.eq("username", cleanUsername))
+        .first();
+
+      if (existingUsername) {
+        return { success: false, error: "Username already taken." };
+      }
+    }
+
     const passwordHash = await hashPassword(args.password);
     const now = new Date().toISOString();
 
     const userId = await ctx.db.insert("users", {
+      username: cleanUsername,
       email: cleanEmail,
       fullName: args.fullName.trim(),
       passwordHash,
@@ -328,29 +414,31 @@ export const toggleUserActive = mutation({
 });
 
 // ============================================================
-// SEED DATA (Initial admin user)
+// SEED DATA (Sample accounts with usernames)
 // ============================================================
 
 export const seedAdminUser = mutation({
   args: {},
   handler: async (ctx) => {
-    const existing = await ctx.db
+    // Check if seed accounts already exist
+    const existingAdmin = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", "admin@stellar.edu"))
+      .withIndex("by_username", (q) => q.eq("username", "stellar_admin"))
       .first();
 
-    if (existing) {
-      return { success: false, message: "Admin user already exists." };
+    if (existingAdmin) {
+      return { success: false, message: "Seed accounts already exist." };
     }
 
-    const passwordHash = await hashPassword("StellarAdmin@2026");
     const now = new Date().toISOString();
 
-    // Create admin
+    // Create admin — Password: St3llar!Admin2026
+    const adminHash = await hashPassword("St3llar!Admin2026");
     await ctx.db.insert("users", {
+      username: "stellar_admin",
       email: "admin@stellar.edu",
       fullName: "System Administrator",
-      passwordHash,
+      passwordHash: adminHash,
       role: "admin",
       isActive: true,
       department: "Administration",
@@ -361,9 +449,10 @@ export const seedAdminUser = mutation({
       lastLoginAt: now,
     });
 
-    // Create sample teacher
-    const teacherHash = await hashPassword("StellarTeacher@2026");
+    // Create teacher — Password: St3llar!Teach2026
+    const teacherHash = await hashPassword("St3llar!Teach2026");
     await ctx.db.insert("users", {
+      username: "stellar_teacher",
       email: "swati.raj@stellar.edu",
       fullName: "Prof. Swati Raj",
       passwordHash: teacherHash,
@@ -379,9 +468,10 @@ export const seedAdminUser = mutation({
       lastLoginAt: now,
     });
 
-    // Create sample student (existing Abhiram user)
-    const studentHash = await hashPassword("StellarAI@2026");
+    // Create student — Password: St3llar!Stud2026
+    const studentHash = await hashPassword("St3llar!Stud2026");
     await ctx.db.insert("users", {
+      username: "stellar_student",
       email: "abhiram.stellar@gmail.com",
       fullName: "Abhiram",
       passwordHash: studentHash,
@@ -404,6 +494,6 @@ export const seedAdminUser = mutation({
       lastLoginAt: now,
     });
 
-    return { success: true, message: "Seed users created: admin, teacher, student." };
+    return { success: true, message: "Seed users created: stellar_admin, stellar_teacher, stellar_student." };
   },
 });

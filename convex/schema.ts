@@ -10,6 +10,7 @@ export default defineSchema({
   // ============================================================
 
   users: defineTable({
+    username: v.optional(v.string()),
     email: v.string(),
     fullName: v.string(),
     passwordHash: v.string(),
@@ -46,6 +47,7 @@ export default defineSchema({
     createdAt: v.string(),
     lastLoginAt: v.string(),
   })
+    .index("by_username", ["username"])
     .index("by_email", ["email"])
     .index("by_role", ["role"])
     .index("by_studentId", ["studentId"])
